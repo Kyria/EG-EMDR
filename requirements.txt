@@ -1,4 +1,4 @@
 gevent>=1.0
-zlib
 pyzmq>=14.2.0
 simplejson>=3.4.0
+mysql-python
