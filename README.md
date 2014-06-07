@@ -20,17 +20,10 @@ Project Requirements
 Installation
 ------------
 
-1. Create a virtual env ```
-virtualenv egemdr_env
-```
-2. Go into the virtualenv and clone the repository ```
-cd egemdr_env
-git clone https://github.com/Kyria/EG-EMDR.git
-``` 
-3. Install requirements ``` 
-source bin/activate
-pip install -r EG-EMDR/requirements.txt
-``` 
+1. Create a virtual env ``` virtualenv egemdr_env```
+2. Go into the virtualenv directory ```egemdr_env``` and clone the repository  ```  git clone https://github.com/Kyria/EG-EMDR.git``` 
+3. Don't forget to use virtualenv with ``` source bin/activate ```
+3. Install requirements ``` pip install -r EG-EMDR/requirements.txt ``` 
 4. Configure the settings file in ```config```
 5. On your database, execute ```sql/create_table.sql``` to create the required tables.
 6. You are now ready to use it.
