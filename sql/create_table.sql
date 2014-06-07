@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS `emdr_price_history` (
   `type_id` int(11) NOT NULL,
   `date` datetime NOT NULL,
-  `orders` int(5),
-  `quantity` int(12),
+  `orders` int(7),
+  `quantity` BIGINT,
   `low` float,
   `high` float,
   `average` float,
@@ -14,13 +14,11 @@ CREATE TABLE IF NOT EXISTS `emdr_raw_price` (
   `type_id` int(11) NOT NULL,
   `generated_at` datetime NOT NULL,
   `orders` int(5),
-  `quantity` int(12),
   `sell_price` float,
   `buy_price` float,
-  `vol_remaining` int(12),
-  `vol_entered` int(12),
+  `vol_remaining` BIGINT,
+  `vol_entered` BIGINT,
   `region_id` int(11),
-  `station_id` int(11) NOT NULL,
   `solar_system_id` int(11),
-  CONSTRAINT pk PRIMARY KEY (`type_id`,`generated_at`,`station_id`)
+  CONSTRAINT pk PRIMARY KEY (`type_id`,`generated_at`, solar_system_id)
 );
