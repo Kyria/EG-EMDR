@@ -21,6 +21,17 @@ DB_USER = ""
 DB_PASS = ""
 DB_NAME = ""
 
+# purging ?
+# if "True", the script will purge old data itself once per day
+AUTO_PURGE = True
+
+# Number of day we want to keep in history
+HISTORY_DAYS_RETENTION = 365
+
+# Number of hours we want to keep in orders
+ORDERS_HOURS_RETENTION = 24
+
+
 # these are the region we want to keep the history and orders
 REGIONS = [
     #10000001, # Derelik
