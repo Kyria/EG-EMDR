@@ -20,17 +20,14 @@ Project Requirements
 Installation
 ------------
 
-1. Create a virtual env 
-```
+1. Create a virtual env ```
 virtualenv egemdr_env
 ```
-2. Go into the virtualenv and clone the repository 
-```
+2. Go into the virtualenv and clone the repository ```
 cd egemdr_env
 git clone https://github.com/Kyria/EG-EMDR.git
 ``` 
-3. Install requirements
-``` 
+3. Install requirements ``` 
 source bin/activate
 pip install -r EG-EMDR/requirements.txt
 ``` 
