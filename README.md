@@ -28,6 +28,7 @@ Installation
 5. On your database, execute ```sql/create_table.sql``` to create the required tables.
 6. You are now ready to use it.
 
+
 Using EG-EMDR
 -------------
 
@@ -37,3 +38,5 @@ python consumer.py
 ```
 
 You can call this python script in a daemon shell script to run it when you start your server. 
+
+NOTE : The script will execute a "purge" at the start of the script and do one every 24 hours automatically, so you don't have to worry about "old data"
