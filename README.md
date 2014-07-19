@@ -27,7 +27,7 @@ Installation
 6. You are now ready to use it.
 
 
-Using EG-EMDR
+Using Python-EMDR-Consumer
 -------------
 
 To use the emdr consumer, simply do this command : 
