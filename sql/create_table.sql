@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `emdr_price_history` (
   CONSTRAINT pk PRIMARY KEY (`type_id`,`date`,`region_id`)
 );
 
-CREATE TABLE IF NOT EXISTS `emdr_raw_price` (
+CREATE TABLE IF NOT EXISTS `emdr_daily_price` (
   `type_id` int(11) NOT NULL,
   `generated_at` datetime NOT NULL,
   `orders` int(5),
@@ -20,5 +20,5 @@ CREATE TABLE IF NOT EXISTS `emdr_raw_price` (
   `vol_entered` BIGINT,
   `region_id` int(11),
   `solar_system_id` int(11),
-  CONSTRAINT pk PRIMARY KEY (`type_id`,`generated_at`, solar_system_id)
+  CONSTRAINT pk PRIMARY KEY (`type_id`, solar_system_id)
 );

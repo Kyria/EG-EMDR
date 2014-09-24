@@ -28,9 +28,11 @@ AUTO_PURGE = True
 # Number of day we want to keep in history
 HISTORY_DAYS_RETENTION = 365
 
-# Number of hours we want to keep in orders
-ORDERS_HOURS_RETENTION = 24
+# Insert the items history into the database
+INSERT_HISTORY = True
 
+# Insert the items daily orders 
+INSERT_DAILY = True
 
 # these are the region we want to keep the history and orders
 REGIONS = [

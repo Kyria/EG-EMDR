@@ -1,3 +1,8 @@
+# gevent monkey patch
+import gevent
+from gevent import monkey;
+gevent.monkey.patch_all()
+
 import zlib
 import random
 import threading
@@ -9,19 +14,19 @@ import zmq.green as zmq
 
 from dateutil import parser
 from datetime import datetime
-from gevent import monkey;
 from gevent.pool import Pool
 from itertools import groupby
 
 from config import settings
 
-# gevent monkey patch
-gevent.monkey.patch_all()
+
 
 class emdr_consumer:
 
     history_query = "INSERT IGNORE INTO emdr_price_history (type_id, `date`, orders, quantity, low, high, average, region_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-    order_query = "INSERT IGNORE INTO emdr_raw_price (type_id, generated_at, orders, sell_price, buy_price, vol_remaining, vol_entered, region_id, solar_system_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    order_query = "INSERT INTO emdr_daily_price (type_id, generated_at, orders, sell_price, buy_price, vol_remaining, vol_entered, region_id, solar_system_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    order_query_update = "UPDATE emdr_daily_price SET generated_at = %s, orders = %s, sell_price = %s, buy_price = %s, vol_remaining = %s, vol_entered = %s WHERE solar_system_id = %s AND type_id = %s"
+    DUPLICATE_ENTRY_ERROR_CODE = 1062
     
     def main(self):
         """
@@ -50,9 +55,70 @@ class emdr_consumer:
             self.purge_data()
         
         while True:
-            # let's start working
-            greenlet_pool.spawn(self.worker, subscriber.recv())
+           #let's start working
+           greenlet_pool.spawn(self.worker, subscriber.recv())
+      
+    def insert_daily_value(self, rowset, columns, generated_at, type_id, region_id, db):
+        """
+        Insert daily raw data only the latest
+        """
+        by_system = {}
+        
+        cursor = db.cursor()
+
+        for row in rowset['rows']:
+            order = self.init_data(columns, row, generated_at, type_id, region_id)
+        
+            order['issueDate'] = parser.parse(order['issueDate'])
+            if order['solarSystemID'] in settings.SOLAR_SYSTEMS:
+                if order['solarSystemID'] not in by_system:
+                    by_system[order['solarSystemID']] = []
+                by_system[order['solarSystemID']].append(order)
+            else:
+                continue
+
+        for system, orders in by_system.iteritems():
+            sort = sorted(orders, key=lambda x: x["bid"])
             
+            bids = {k:list(g) for k,g in groupby(sort, key=lambda x: x["bid"])}
+            max_bid = max(o['price'] for o in bids[True]) if True in bids else None
+            min_sell = min(o['price'] for o in bids[False]) if False in bids else None
+            vol_remaining = sum(o['volRemaining'] for o in bids[False]) if False in bids else None  
+            vol_entered = sum(o['volEntered'] for o in bids[False]) if False in bids else None  
+            orders_number = int(len(orders))
+            
+            try:
+                cursor.execute(self.order_query,(type_id, generated_at, orders_number, min_sell, max_bid, vol_remaining, vol_entered, region_id, system))
+                db.commit()
+            except MySQLdb.Error as err:
+                db.rollback()
+                error_code = err[0]
+                if error_code == self.DUPLICATE_ENTRY_ERROR_CODE:
+                    cursor.execute(self.order_query_update,(generated_at, orders_number, min_sell, max_bid, vol_remaining, vol_entered, system, type_id))
+                    db.commit()
+                else:
+                    message = err[1]
+                    print "%s | MySQL Error : %s - %s" % (datetime.now().time(), error_code, message)
+
+    def insert_history(self, rowset, columns, generated_at, type_id, region_id, db):
+        """
+        Insert history per items
+        """
+        if region_id not in settings.REGIONS:
+            return
+        
+        query_values_hist = []
+        for row in rowset['rows']:
+            data = self.init_data(columns, row, generated_at, type_id, region_id)
+            data['date'] = parser.parse(data['date']).date().isoformat()
+
+            query_values_hist.append((type_id, data['date'], data['orders'], data['quantity'], data['low'], data['high'], data['average'], region_id))
+
+        if query_values_hist:
+            cursor = db.cursor()
+            cursor.executemany(self.history_query,query_values_hist)
+            db.commit()
+   
     def init_data(self,columns, row, generated_at, type_id, region_id):
         """
             helper 
@@ -81,7 +147,6 @@ class emdr_consumer:
         
         # init database connection
         db = MySQLdb.connect(settings.DB_HOST, settings.DB_USER, settings.DB_PASS, settings.DB_NAME)
-        cursor = db.cursor()
         
         # let's start
         for rowset in market_data['rowsets']:
@@ -91,56 +156,11 @@ class emdr_consumer:
             region_id = int(rowset['regionID'])
             
             # message is for history
-            if data_type == 'history': 
-                if region_id not in settings.REGIONS:
-                    continue
-                
-                query_values_hist = []
-                for row in rowset['rows']:
-                    data = self.init_data(columns, row, generated_at, type_id, region_id)
-                    data['date'] = parser.parse(data['date']).date().isoformat()
-
-                    query_values_hist.append((type_id, data['date'], data['orders'], data['quantity'], data['low'], data['high'], data['average'], region_id))
-
-                if query_values_hist:
-                    cursor.executemany(self.history_query,query_values_hist)
-                    db.commit()
-
+            if data_type == 'history' and settings.INSERT_HISTORY: 
+                self.insert_history(rowset, columns, generated_at, type_id, region_id, db)
             # the current message is for orders   
-            elif data_type == 'orders':
-                by_system = {}
-                query_values_order = []
-
-                for row in rowset['rows']:
-                    order = self.init_data(columns, row, generated_at, type_id, region_id)
-                
-                    order['issueDate'] = parser.parse(order['issueDate'])
-                    if order['solarSystemID'] in settings.SOLAR_SYSTEMS:
-                        if order['solarSystemID'] not in by_system:
-                            by_system[order['solarSystemID']] = []
-                        by_system[order['solarSystemID']].append(order)
-                    else:
-                        continue
-
-                for system, orders in by_system.iteritems():
-                    sort = sorted(orders, key=lambda x: x["bid"])
-                    
-                    bids = {k:list(g) for k,g in groupby(sort, key=lambda x: x["bid"])}
-                    max_bid = max(o['price'] for o in bids[True]) if True in bids else None
-                    min_sell = min(o['price'] for o in bids[False]) if False in bids else None
-                    vol_remaining = sum(o['volRemaining'] for o in bids[False]) if False in bids else None  
-                    vol_entered = sum(o['volEntered'] for o in bids[False]) if False in bids else None  
-                    orders_number = int(len(orders))
-                    
-                    query_values_order.append((type_id, generated_at, orders_number, min_sell, max_bid, vol_remaining, vol_entered, region_id, system))
-                
-                if query_values_order:
-                    cursor.executemany(self.order_query,query_values_order)
-                    db.commit()
-            
-        #time_diff = datetime.now() - start_time
-        #gen = market_data['generator']['name']
-        #print "Debug | worker time : %s - %d ms" % (data_type, time_diff.microseconds/100)
+            elif data_type == 'orders' and settings.INSERT_DAILY:
+                self.insert_daily_value(rowset, columns, generated_at, type_id, region_id, db)
     
     def purge_data(self):
         """
@@ -162,15 +182,12 @@ class emdr_consumer:
         print "%s | ... purging price history older than %d days..." % (datetime.now().time(), settings.HISTORY_DAYS_RETENTION)
         # delete all history older than 365 day
         cursor.execute("DELETE FROM emdr_price_history where `date` < (UTC_TIMESTAMP() - INTERVAL %d DAY)" % settings.HISTORY_DAYS_RETENTION)
-        
-        print "%s | ... purging order prices older than %d hours  ..." % (datetime.now().time(), settings.ORDERS_HOURS_RETENTION)
-        # delete all raw price older than 24 hours
-        cursor.execute("DELETE FROM emdr_raw_price WHERE generated_at < (UTC_TIMESTAMP() - interval %d hour)" % settings.ORDERS_HOURS_RETENTION)
-        
+             
         # commit :)
         db.commit()
         
         print "%s | ... Purging done" % datetime.now().time()
+    
     
    
 if __name__ == '__main__':
