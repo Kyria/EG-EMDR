@@ -3,3 +3,4 @@ pyzmq>=14.2.0
 simplejson>=3.4.0
 mysql-python
 python-dateutil
+python-daemon

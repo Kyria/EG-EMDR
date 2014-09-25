@@ -15,6 +15,16 @@ RELAYS = [
     #"tcp://relay-eu-germany-1.eve-emdr.com:8050" , # Hetzner   Germany
 ]
 
+# Logger informations
+LOGGER_NAME = "EMDR Consumer"
+LOGGER_FORMATTER = "%(name)s | %(asctime)s | %(levelname)s | %(message)s"
+LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%m:%S"
+LOGGER_LOG_FILE = "/var/log/emdr_consumer/consumer.log"
+
+# If you use the daemon, you must set where to check the PID file
+# FULL PATH REQUIRED
+DAEMON_PID_FILE_PATH = "/var/run/emdr_consumer/consumer_daemon.pid"
+
 # database informations
 DB_HOST = ""
 DB_USER = ""

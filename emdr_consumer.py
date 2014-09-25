@@ -3,9 +3,10 @@ import gevent
 from gevent import monkey;
 gevent.monkey.patch_all()
 
-import zlib
+import logging
 import random
 import threading
+import zlib
 
 import MySQLdb
 import gevent
@@ -21,14 +22,14 @@ from config import settings
 
 
 
-class emdr_consumer:
+class EMDRConsumer:
 
     history_query = "INSERT IGNORE INTO emdr_price_history (type_id, `date`, orders, quantity, low, high, average, region_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
     order_query = "INSERT INTO emdr_daily_price (type_id, generated_at, orders, sell_price, buy_price, vol_remaining, vol_entered, region_id, solar_system_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
     order_query_update = "UPDATE emdr_daily_price SET generated_at = %s, orders = %s, sell_price = %s, buy_price = %s, vol_remaining = %s, vol_entered = %s WHERE solar_system_id = %s AND type_id = %s"
     DUPLICATE_ENTRY_ERROR_CODE = 1062
     
-    def main(self):
+    def run(self):
         """
         The main flow of the application.
         """
@@ -41,17 +42,17 @@ class emdr_consumer:
         # connect to one of the relay
         relay = random.choice(settings.RELAYS)
         subscriber.connect(relay)
-        print "Relay chosen : %s" % relay
+        logger.info("Relay chosen : %s" % relay)
 
         # We use a greenlet pool to cap the number of workers at a reasonable level.
         greenlet_pool = Pool(size=settings.MAX_NUM_POOL_WORKERS)
 
-        print "Consumer daemon started, waiting for jobs..."
-        print "Worker pool size: %d" % greenlet_pool.size
+        logger.info("Consumer daemon started, waiting for jobs...")
+        logger.info("Worker pool size: %d" % greenlet_pool.size)
         
         # starting purge
         if settings.AUTO_PURGE:
-            print "Purge is activated and will run once per day"
+            logger.info("Purge is activated and will run once per day")
             self.purge_data()
         
         while True:
@@ -98,7 +99,7 @@ class emdr_consumer:
                     db.commit()
                 else:
                     message = err[1]
-                    print "%s | MySQL Error : %s - %s" % (datetime.now().time(), error_code, message)
+                    logger.error("MySQL Error : %s - %s" % (error_code, message))
 
     def insert_history(self, rowset, columns, generated_at, type_id, region_id, db):
         """
@@ -173,25 +174,32 @@ class emdr_consumer:
         threading.Timer(86400, self.purge_data).start()
         
         # little echo for log
-        print "%s | Purging useless data..." % datetime.now().time()
+        logger.info("Purging useless data...")
              
         # init db 
         db = MySQLdb.connect(settings.DB_HOST, settings.DB_USER, settings.DB_PASS, settings.DB_NAME)
         cursor = db.cursor()
 
-        print "%s | ... purging price history older than %d days..." % (datetime.now().time(), settings.HISTORY_DAYS_RETENTION)
+        logger.info("... purging price history older than %d days..." % (settings.HISTORY_DAYS_RETENTION,))
         # delete all history older than 365 day
         cursor.execute("DELETE FROM emdr_price_history where `date` < (UTC_TIMESTAMP() - INTERVAL %d DAY)" % settings.HISTORY_DAYS_RETENTION)
              
         # commit :)
         db.commit()
         
-        print "%s | ... Purging done" % datetime.now().time()
+        logger.info("... Purging done")
     
     
    
 if __name__ == '__main__':
-    consumer = emdr_consumer() 
-    consumer.main()
+    logger = logging.getLogger(settings.LOGGER_NAME)
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(settings.LOGGER_FORMATTER, settings.LOGGER_DATE_FORMAT)
+    handler = logging.FileHandler(settings.LOGGER_LOG_FILE)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    
+    consumer = EMDRConsumer() 
+    consumer.run()
 
     
