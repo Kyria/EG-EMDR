@@ -21,6 +21,12 @@ from itertools import groupby
 from config import settings
 
 
+logger = logging.getLogger(settings.LOGGER_NAME)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter(settings.LOGGER_FORMATTER, settings.LOGGER_DATE_FORMAT)
+handler = logging.FileHandler(settings.LOGGER_LOG_FILE)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 class EMDRConsumer:
 
@@ -191,14 +197,7 @@ class EMDRConsumer:
     
     
    
-if __name__ == '__main__':
-    logger = logging.getLogger(settings.LOGGER_NAME)
-    logger.setLevel(logging.INFO)
-    formatter = logging.Formatter(settings.LOGGER_FORMATTER, settings.LOGGER_DATE_FORMAT)
-    handler = logging.FileHandler(settings.LOGGER_LOG_FILE)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    
+if __name__ == '__main__':    
     consumer = EMDRConsumer() 
     consumer.run()
 
